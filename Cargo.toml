@@ -1,0 +1,11 @@
+[package]
+name = "partial-key-cracker"
+version = "0.1.0"
+authors = ["Justin Kilpatrick <kilpatrickjustin@protonmail.ch>"]
+edition = "2018"
+
+[dependencies]
+web30 = {git = "https://github.com/althea-mesh/web30"}
+actix = "0.8"
+clarity = "0.1"
+docopt = "1.1"
