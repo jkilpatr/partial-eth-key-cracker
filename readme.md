@@ -42,7 +42,7 @@ I'm very open to pull requests that would do this automatically.
 
 Another cool feature that this project does not have yet is the ability to handle multiple areas of corruption. Right now it can only check one contiguous area of lost bits at a time. 
 
-After that you'll need to either download the latest release from the github releases page. Or install [Rust](https://rustup.rs/) and build partial-eth-key-Finder yourself. 
+After that you'll need to either download the latest release from the [releases](https://github.com/jkilpatr/partial-eth-key-cracker/releases) page. Or install [Rust](https://rustup.rs/) and build partial-eth-key-Finder yourself. 
 
 Once you have a binary just run the command 
 
