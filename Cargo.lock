@@ -921,7 +921,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "partial-key-cracker"
+name = "partial-eth-key-finder"
 version = "0.1.0"
 dependencies = [
  "actix 0.7.9 (registry+https://github.com/rust-lang/crates.io-index)",
