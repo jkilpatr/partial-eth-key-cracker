@@ -7,12 +7,14 @@ use failure::Error;
 use futures::future;
 use futures::future::Future;
 use hex::decode;
+use num_cpus;
 use rand::distributions::{Distribution, Uniform};
 use serde::Deserialize;
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
-use sysinfo::{SystemExt};
+use sysinfo::SystemExt;
 use tokio::timer::Delay;
 use web30::client::Web3;
 
@@ -61,7 +63,7 @@ impl Handler<CheckBalance> for CheckKeys {
             .and_then(move |balance| {
                 if balance != 0u32.into() {
                     println!("Found a key! {} {}", test_key.to_string(), address);
-                    panic!("look at the key dumbass!");
+                    panic!("look at the key {} {}!", test_key.to_string(), address);
                 } else {
                     //println!("{} contains no funds", address);
                     local_address_a.do_send(Count);
@@ -139,11 +141,13 @@ impl Handler<Count> for CheckKeys {
 struct Args {
     flag_key: String,
     flag_fullnode: String,
+    flag_known_public_key: String,
     flag_start_index: u8,
     flag_end_index: u8,
 }
 
 fn spawn_check_futures(
+    known_address: Option<Address>,
     partial_key: Vec<u8>,
     full_node: String,
     num_scratch_bytes: u8,
@@ -158,13 +162,7 @@ fn spawn_check_futures(
         let mut test_keys = Vec::new();
         let mut scratch_bits = zeros(num_scratch_bytes);
 
-
-        let test_key_bytes = overwirite_scratch_bits(
-            &partial_key,
-            &scratch_bits,
-            start,
-            end,
-        );
+        let test_key_bytes = overwirite_scratch_bits(&partial_key, &scratch_bits, start, end);
         // there's no do_while loop in rust so we add the all zeros key before entering
         // the incrementing loop
         test_keys.push(test_key_bytes);
@@ -205,18 +203,29 @@ fn spawn_check_futures(
                     //println!("Testing key {}", test_key.to_string());
                     let public_key = test_key.to_public_key().unwrap();
 
-                    // backpressure, if the mailbox is full sleep and wait for it to not be
-                    while local_addr
-                        .send(CheckBalance {
-                            private_key: test_key,
-                            address: public_key,
-                            full_node: local_full_node.clone(),
-                        })
-                        .wait()
-                        .is_err()
-                    {
-                        println!("backpressure!");
-                        thread::sleep(Duration::from_secs(5));
+                    match known_address {
+                        // backpressure, if the mailbox is full sleep and wait for it to not be
+                        None => {
+                            while local_addr
+                                .send(CheckBalance {
+                                    private_key: test_key,
+                                    address: public_key,
+                                    full_node: local_full_node.clone(),
+                                })
+                                .wait()
+                                .is_err()
+                            {
+                                println!("backpressure!");
+                                thread::sleep(Duration::from_secs(5));
+                            }
+                        }
+                        Some(key) => {
+                            local_addr.do_send(Count);
+                            if test_key.to_public_key().unwrap() == key {
+                                println!("Found a key! {} {}", test_key.to_string(), key);
+                                panic!("look at the key {} {}!", test_key.to_string(), key);
+                            }
+                        }
                     }
                 }
             }));
@@ -274,12 +283,13 @@ fn wait_for_memory_pressure() {
 
 fn main() {
     let usage = format!(
-        "Usage: partial-eth-key-cracker --key=<key> --fullnode=<fullnode> --start-index=<start_index> --end-index=<end_index>
+        "Usage: partial-eth-key-cracker --key=<key>  --start-index=<start_index> --end-index=<end_index> [--known-public-key=<known_public_key> | --fullnode=<fullnode>]
 Options:
-    --key=<key>                        The partial private key to crack
-    --fullnode=<fullnode>              The fullnode used to check the balance
-    --start-index=<start_index>        The starting location of the partial key
-    --end-index=<end_index>            The ending location of the partial key
+    --key=<key>                           The partial private key to crack
+    --fullnode=<fullnode>                 The fullnode used to check the balance if no public key is known
+    --start-index=<start_index>           The starting location of the partial key
+    --end-index=<end_index>               The ending location of the partial key
+    --known-public-key=<known_public_key> A known public key to compare against, removes the need for a full node and is much faster
 About:
     Written By: Justin Kilpatrick (justin@altheamesh.com)
     Version {}",
@@ -290,11 +300,18 @@ About:
         .unwrap_or_else(|e| e.exit());
     let partial_key = decode(args.flag_key).expect("Key formatting problem!");
     assert!(args.flag_start_index < args.flag_end_index);
+
+    let mut remote_check = false;
+
+    if args.flag_fullnode.len() != 0 {
+        remote_check = true;
+    }
+
     let full_node = args.flag_fullnode;
+    let public_key = args.flag_known_public_key;
 
     let start = args.flag_start_index / 2;
     let end = args.flag_end_index / 2;
-    let cores = 1;
 
     let num_scratch_bytes = end - start;
     let total_keys = 2u128.pow((num_scratch_bytes * 8) as u32);
@@ -319,15 +336,30 @@ About:
     }
     .start();
 
-    spawn_check_futures(
-        partial_key,
-        full_node,
-        num_scratch_bytes,
-        start,
-        end,
-        cores,
-        addr,
-    );
+    if remote_check {
+        spawn_check_futures(
+            None,
+            partial_key,
+            full_node,
+            num_scratch_bytes,
+            start,
+            end,
+            1,
+            addr,
+        );
+    } else {
+        let key = Address::from_str(&public_key).expect("Invalid public key!");
+        spawn_check_futures(
+            Some(key),
+            partial_key,
+            full_node,
+            num_scratch_bytes,
+            start,
+            end,
+            num_cpus::get() as u16,
+            addr,
+        );
+    }
 
     let system = actix::System::new("key-cracker");
     system.run();

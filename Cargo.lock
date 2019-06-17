@@ -930,6 +930,7 @@ dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 1.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysinfo 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
