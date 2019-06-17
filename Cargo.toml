@@ -6,6 +6,13 @@ edition = "2018"
 
 [dependencies]
 web30 = {git = "https://github.com/althea-mesh/web30"}
-actix = "0.8"
+actix = "0.7"
 clarity = "0.1"
 docopt = "1.1"
+hex = "0.3"
+serde = "1.0"
+failure = "0.1"
+futures = "0.1"
+sysinfo = "0.8"
+tokio = "0.1"
+rand = "0.6"
