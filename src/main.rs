@@ -91,7 +91,7 @@ impl Handler<CheckBalance> for CheckKeys {
                             .then(|_| Ok(())),
                     )
                 } else {
-                    Box::new(future::ok(())) as Box<Future<Item = (), Error = ()>>
+                    Box::new(future::ok(())) as Box<dyn Future<Item = (), Error = ()>>
                 }
             });
 
@@ -111,7 +111,7 @@ impl Handler<Tick> for CheckKeys {
     fn handle(&mut self, _: Tick, _ctx: &mut Context<Self>) -> Self::Result {
         let (last_sample_time, last_sample_number) = self.history;
         let time_since_last_sample = (Instant::now() - last_sample_time).as_secs();
-        let progress = self.count as f32 / self.max as f32;
+        let progress = (self.count as f32 / self.max as f32) * 100f32;
         let avg = (self.count - last_sample_number) / time_since_last_sample as u128;
         self.history = (Instant::now(), self.count);
 
@@ -119,6 +119,11 @@ impl Handler<Tick> for CheckKeys {
             "Checking keys: {} keys / second \nProgress: {:.2}%",
             avg, progress
         );
+
+        if self.count == self.max - 1 {
+            println!("No key found, please double check your arguments and inputs");
+            panic!("No key found, please double check your arguments and inputs");
+        }
         Ok(())
     }
 }
@@ -310,8 +315,8 @@ About:
     let full_node = args.flag_fullnode;
     let public_key = args.flag_known_public_key;
 
-    let start = args.flag_start_index / 2;
-    let end = args.flag_end_index / 2;
+    let start = (args.flag_start_index + 1) / 2;
+    let end = (args.flag_end_index + 1) / 2;
 
     let num_scratch_bytes = end - start;
     let total_keys = 2u128.pow((num_scratch_bytes * 8) as u32);
